@@ -1,3 +1,4 @@
 # Hackathon SEMCOMP 28 - Time Miranha
 ## Membros:
-- Luís Peres
+- Luís Peres  
+- Vinicius Costa
