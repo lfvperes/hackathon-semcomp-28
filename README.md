@@ -2,3 +2,4 @@
 ## Membros:
 - Luís Peres  
 - Vinicius Costa
+- Gustavo (Kuka)
