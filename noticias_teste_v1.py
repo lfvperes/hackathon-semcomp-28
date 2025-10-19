@@ -3,74 +3,58 @@ import json
 import pandas as pd
 from datetime import datetime
 import os
+import pathlib as Path
 import re
 from collections import Counter
 
-# ============ PARTE 1: REQUISIÇÃO DA API ============
+url = 'https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=AAPL&apikey=HE6JJP6N87RFIOD9'
+r = requests.get(url)
+data = r.json()
+print(data)
 
-def fazer_requisicao_news():
-    """Faz a requisição para a API de News da Alpha Vantage"""
-    
-    api_key = "HE6JJP6N87RFIOD9"
-    url = f'https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=AAPL&apikey={api_key}'
-    
-    try:
-        print("🌐 Fazendo requisição para a API...")
-        r = requests.get(url)
-        r.raise_for_status()
-        data = r.json()
-        
-        # VERIFICAR SE A API RETORNOU ERRO
-        if 'Information' in data:
-            print(f"❌ ERRO DA API: {data['Information']}")
-            return None
-        
-        if 'Error Message' in data:
-            print(f"❌ ERRO DA API: {data['Error Message']}")
-            return None
-        
-        if 'feed' not in data:
-            print("❌ Nenhum dado de 'feed' encontrado na resposta da API")
-            return None
-        
-        if not data.get('feed'):
-            print("⚠️ O 'feed' de notícias está vazio na resposta da API")
-            return None
-        
-        print(f"✅ API retornou {len(data.get('feed', []))} notícias")
-        return data
-        
-    except requests.exceptions.RequestException as e:
-        print(f"❌ Erro na requisição: {e}")
-        return None
 
-def salvar_dados_api(data, nome_arquivo='news_sentiments.json'):
-    """Salva os dados da API em arquivo JSON"""
-    if data is None:
-        print("❌ Nenhum dado para salvar")
-        return None
-    
-    try:
-        diretorio_saida = r'C:\Users\Acer\Downloads'
-        caminho_completo = os.path.join(diretorio_saida, nome_arquivo)
-        
-        os.makedirs(diretorio_saida, exist_ok=True)
-        
-        with open(caminho_completo, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
-        
-        print(f"💾 Dados salvos com sucesso em: '{caminho_completo}'")
-        return caminho_completo
-        
-    except Exception as e:
-        print(f"❌ Erro ao salvar arquivo: {e}")
-        return None
+try:
+    r = requests.get(url)
+    r.raise_for_status()  # Verifica se houve erros na requisição
+    data = r.json()
 
-# ============ PARTE 2: PROCESSAMENTO DOS DADOS ============
+    # --- Parte alterada ---
+    # Define o caminho completo para salvar o arquivo
+    diretorio_saida = r'C:\Users\Acer\Downloads'
+    nome_do_arquivo = 'news_sentiments.json'
+    caminho_completo = os.path.join(diretorio_saida, nome_do_arquivo)
+    # --------------------
+
+    # Garante que o diretório de destino exista antes de salvar
+    os.makedirs(diretorio_saida, exist_ok=True)
+
+    # Salva o arquivo no caminho especificado
+    with open(caminho_completo, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
+
+    print(f"Os dados foram salvos com sucesso em: '{caminho_completo}'")
+
+except requests.exceptions.RequestException as e:
+    print(f"Ocorreu um erro ao fazer a requisição: {e}")
+except json.JSONDecodeError:
+    print("Ocorreu um erro ao decodificar o JSON da resposta.")
+   
+#########
+#ESTRUTURAÇÃO DOS METADADOS
+#########
+
+import json
+import pandas as pd
+import os
+from datetime import datetime
+import re
+from collections import Counter
 
 def processar_news_sentiments(arquivo_json):
     """
     Processa arquivo JSON de News & Sentiments
+    Args:
+        arquivo_json: caminho do arquivo ou nome se estiver na mesma pasta
     """
     
     try:
@@ -78,17 +62,6 @@ def processar_news_sentiments(arquivo_json):
             dados = json.load(file)
         
         print("✅ Arquivo de News carregado com sucesso!")
-        
-        if 'feed' not in dados:
-            print("❌ Nenhum dado de 'feed' encontrado no arquivo")
-            return None
-        
-        feed_noticias = dados.get('feed', [])
-        if not feed_noticias:
-            print("⚠️ O 'feed' de notícias está vazio")
-            return None
-        
-        print(f"📊 Processando {len(feed_noticias)} notícias...")
         
         # ESTRUTURA PRINCIPAL
         estrutura_organizada = {
@@ -101,19 +74,18 @@ def processar_news_sentiments(arquivo_json):
         
         # METADADOS GERAIS
         estrutura_organizada['metadados_gerais'] = {
-            'total_noticias': len(feed_noticias),
-            'items_retornados': int(dados.get('items', len(feed_noticias))),
+            'total_noticias': int(dados.get('items', 0)),
             'data_processamento': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'definicao_sentimento': dados.get('sentiment_score_definition', ''),
             'definicao_relevancia': dados.get('relevance_score_definition', ''),
-            'periodo_cobertura': extrair_periodo_noticias(feed_noticias)
+            'periodo_cobertura': extrair_periodo_noticias(dados.get('feed', []))
         }
         
         # PROCESSAR CADA NOTÍCIA
         noticias_processadas = []
         todos_tickers = []
         
-        for noticia in feed_noticias:
+        for noticia in dados.get('feed', []):
             noticia_processada = {
                 'titulo': noticia.get('title', ''),
                 'resumo': noticia.get('summary', ''),
@@ -150,6 +122,7 @@ def processar_news_sentiments(arquivo_json):
             df_noticias = pd.DataFrame(noticias_processadas)
             df_tickers = pd.DataFrame(todos_tickers)
             
+            # CORREÇÃO: Usar .get() para evitar KeyError
             estrutura_organizada['analise_sentimentos'] = {
                 'total_noticias_processadas': len(noticias_processadas),
                 'distribuicao_sentimentos': df_noticias['label_sentimento'].value_counts().to_dict(),
@@ -158,15 +131,16 @@ def processar_news_sentiments(arquivo_json):
                 'topicos_principais': obter_topics_mais_comuns(noticias_processadas)
             }
             
-            # ESTATÍSTICAS DETALHADAS - CORRIGIDO
+            # ESTATÍSTICAS DETALHADAS
             estrutura_organizada['estatisticas_detalhadas'] = {
                 'publicacoes_por_fonte': df_noticias['fonte_publicacao'].value_counts().to_dict() if 'fonte_publicacao' in df_noticias.columns else {},
                 'publicacoes_por_data': df_noticias['data_publicacao'].value_counts().to_dict() if 'data_publicacao' in df_noticias.columns else {},
-                'evolucao_sentimento_diaria': calcular_evolucao_sentimento(df_noticias)  # Esta função foi corrigida
+                'evolucao_sentimento_diaria': calcular_evolucao_sentimento(df_noticias)
             }
             
             # ANÁLISE POR TICKER
             if not df_tickers.empty:
+                # Calcular estatísticas por ticker
                 stats_tickers = df_tickers.groupby('ticker').agg({
                     'score_sentimento': ['mean', 'count'],
                     'score_relevancia': 'mean'
@@ -238,28 +212,28 @@ def obter_topics_mais_comuns(noticias):
     for noticia in noticias:
         for topic in noticia.get('topicos', []):
             if isinstance(topic, str):
+                # Extrair apenas o nome do tópico (remover relevância)
                 topic_name = topic.split(' (relevância:')[0].strip()
                 all_topics.append(topic_name)
+    
     return dict(Counter(all_topics).most_common(10))
 
 def calcular_evolucao_sentimento(df_noticias):
-    """Calcular evolução do sentimento por dia - CORRIGIDA"""
+    """Calcular evolução do sentimento por dia"""
     try:
         if 'data_publicacao' not in df_noticias.columns or 'score_sentimento' not in df_noticias.columns:
             return {}
             
         df_noticias['data'] = pd.to_datetime(df_noticias['data_publicacao']).dt.date
-        
-        # CORREÇÃO: Converter datas para string antes de criar o dicionário
         evolucao = df_noticias.groupby('data').agg({
             'score_sentimento': 'mean',
             'titulo': 'count'
         }).round(4)
         
-        # Converter o índice de data para string
+        # CORREÇÃO: Converter datas para string
         evolucao_dict = {}
         for data, row in evolucao.iterrows():
-            data_str = data.strftime('%Y-%m-%d')  # Converter date para string
+            data_str = data.strftime('%Y-%m-%d')  # Converter para string
             evolucao_dict[data_str] = {
                 'sentimento_medio': float(row['score_sentimento']),
                 'total_noticias': int(row['titulo'])
@@ -267,126 +241,100 @@ def calcular_evolucao_sentimento(df_noticias):
         
         return evolucao_dict
         
-    except Exception as e:
-        print(f"⚠️ Aviso na evolução de sentimento: {e}")
+    except:
         return {}
 
-# ============ PARTE 3: EXPORTAÇÃO ============
-
+# FUNÇÃO PARA EXPORTAR RESULTADOS - CORRIGIDA (SEM EXCEL)
 def exportar_resultados(dados_estruturados, prefixo="news_sentiments"):
-    """Exporta os dados estruturados em JSON e CSV"""
+    """Exporta os dados estruturados em JSON e CSV apenas"""
     
     if not dados_estruturados:
         print("❌ Nenhum dado para exportar!")
         return
     
     try:
-        diretorio_saida = r'C:\Users\Acer\Downloads'
-        
-        # 1. Exportar JSON completo
-        caminho_json = os.path.join(diretorio_saida, f"{prefixo}_estruturado.json")
-        with open(caminho_json, 'w', encoding='utf-8') as f:
+        # 1. Exportar JSON completo - CORREÇÃO: adicionar default=str
+        with open(f"{prefixo}_estruturado.json", 'w', encoding='utf-8') as f:
             json.dump(dados_estruturados, f, indent=2, ensure_ascii=False, default=str)
-        print(f"💾 JSON salvo: {caminho_json}")
+        print(f"💾 JSON salvo: {prefixo}_estruturado.json")
         
         # 2. Exportar notícias em CSV
         if dados_estruturados['feed_noticias']:
             df_noticias = pd.DataFrame(dados_estruturados['feed_noticias'])
-            caminho_csv = os.path.join(diretorio_saida, f"{prefixo}_noticias.csv")
-            df_noticias.to_csv(caminho_csv, index=False, encoding='utf-8')
-            print(f"💾 CSV salvo: {caminho_csv}")
+            df_noticias.to_csv(f"{prefixo}_noticias.csv", index=False, encoding='utf-8')
+            print(f"💾 CSV salvo: {prefixo}_noticias.csv")
             
-            # 3. Exportar análise de tickers em CSV
-            if dados_estruturados.get('tickers_analisados'):
-                tickers_data = []
-                for ticker, info in dados_estruturados['tickers_analisados']['analise_sentimento_tickers'].items():
-                    tickers_data.append({
-                        'ticker': ticker,
-                        'sentimento_medio': info['sentimento_medio'],
-                        'total_mencoes': info['total_mencoes'],
-                        'relevancia_media': info['relevancia_media']
-                    })
-                
-                df_tickers = pd.DataFrame(tickers_data)
-                caminho_tickers = os.path.join(diretorio_saida, f"{prefixo}_tickers.csv")
-                df_tickers.to_csv(caminho_tickers, index=False, encoding='utf-8')
-                print(f"💾 CSV de tickers salvo: {caminho_tickers}")
+        # 3. Exportar análise de tickers em CSV separado
+        if dados_estruturados.get('tickers_analisados'):
+            tickers_data = []
+            for ticker, info in dados_estruturados['tickers_analisados']['analise_sentimento_tickers'].items():
+                tickers_data.append({
+                    'ticker': ticker,
+                    'sentimento_medio': info['sentimento_medio'],
+                    'total_mencoes': info['total_mencoes'],
+                    'relevancia_media': info['relevancia_media']
+                })
+            
+            df_tickers = pd.DataFrame(tickers_data)
+            df_tickers.to_csv(f"{prefixo}_tickers_analise.csv", index=False, encoding='utf-8')
+            print(f"💾 CSV de tickers salvo: {prefixo}_tickers_analise.csv")
         
         print("✅ Exportação concluída com sucesso!")
         
     except Exception as e:
         print(f"❌ Erro na exportação: {e}")
-        import traceback
-        traceback.print_exc()
 
-# ============ EXECUÇÃO PRINCIPAL ============
-
+# EXECUÇÃO PRINCIPAL COM VERIFICAÇÕES
 if __name__ == "__main__":
+    # SUBSTITUA pelo caminho real do seu arquivo
+    caminho_arquivo = r"C:\Users\Acer\Downloads\news_sentiments.json"
+    
     print("🚀 INICIANDO PROCESSAMENTO DE NEWS & SENTIMENTS")
     print("=" * 60)
     
-    # 1. Fazer requisição para a API
-    dados_api = fazer_requisicao_news()
-    
-    if dados_api is None:
-        print("❌ Falha na obtenção dos dados da API")
-        exit()
-    
-    # 2. Salvar dados da API
-    caminho_arquivo = salvar_dados_api(dados_api)
-    
-    if caminho_arquivo is None:
-        print("❌ Falha ao salvar dados da API")
-        exit()
-    
-    # 3. Processar dados
-    dados_news = processar_news_sentiments(caminho_arquivo)
-    
-    if dados_news:
-        print("\n" + "=" * 50)
-        print("✅ DADOS ORGANIZADOS COM SUCESSO!")
-        print("=" * 50)
-        
-        metadados = dados_news['metadados_gerais']
-        analise = dados_news['analise_sentimentos']
-        
-        print(f"📊 Total de notícias processadas: {metadados.get('total_noticias', 0)}")
-        print(f"📈 Sentimento médio: {analise.get('score_sentimento_medio', 'N/A')}")
-        print(f"🎯 Fontes únicas: {analise.get('quantidade_fontes', 0)}")
-        
-        # Verificar distribuição de sentimentos
-        distribuicao = analise.get('distribuicao_sentimentos', {})
-        if distribuicao:
-            print(f"\n📋 DISTRIBUIÇÃO DE SENTIMENTOS:")
-            for sentimento, quantidade in distribuicao.items():
-                print(f"   {sentimento}: {quantidade} notícias")
-        
-        # Verificar tickers
-        if dados_news.get('tickers_analisados'):
-            tickers_info = dados_news['tickers_analisados']
-            print(f"\n💹 TICKERS ANALISADOS:")
-            print(f"   Total de tickers únicos: {tickers_info.get('total_tickers_unicos', 0)}")
-            
-            tickers_mais_citados = tickers_info.get('tickers_mais_citados', {})
-            if tickers_mais_citados:
-                print(f"\n🏆 TOP 5 TICKERS MAIS CITADOS:")
-                for i, (ticker, count) in enumerate(list(tickers_mais_citados.items())[:5], 1):
-                    print(f"   {i}. {ticker}: {count} menções")
-        
-        # Verificar evolução do sentimento
-        evolucao = dados_news['estatisticas_detalhadas'].get('evolucao_sentimento_diaria', {})
-        if evolucao:
-            print(f"\n📅 EVOLUÇÃO DO SENTIMENTO POR DIA:")
-            for data, info in list(evolucao.items())[:3]:  # Mostrar apenas 3 primeiros dias
-                print(f"   {data}: Sentimento {info['sentimento_medio']} ({info['total_noticias']} notícias)")
-        
-        # 4. Exportar resultados
-        print(f"\n📤 EXPORTANDO RESULTADOS...")
-        exportar_resultados(dados_news)
-        
-        print("\n" + "=" * 50)
-        print("🎉 PROCESSAMENTO CONCLUÍDO!")
-        print("=" * 50)
-        
+    # Verificar se arquivo existe
+    if not os.path.exists(caminho_arquivo):
+        print(f"❌ Arquivo não encontrado: {caminho_arquivo}")
+        print("📁 Arquivos na pasta Downloads:")
+        downloads_path = r"C:\Users\Acer\Downloads"
+        for arquivo in os.listdir(downloads_path):
+            if arquivo.endswith('.json'):
+                print(f"   📄 {arquivo}")
     else:
-        print("❌ Falha no processamento dos dados!")
+        dados_news = processar_news_sentiments(caminho_arquivo)
+        
+        if dados_news:
+            print("\n✅ DADOS ORGANIZADOS COM SUCESSO!")
+            
+            # CORREÇÃO: Usar .get() para evitar KeyError ao exibir
+            metadados = dados_news['metadados_gerais']
+            analise = dados_news['analise_sentimentos']
+            
+            print(f"📊 Total de notícias: {metadados.get('total_noticias', 0)}")
+            print(f"📈 Sentimento médio: {analise.get('score_sentimento_medio', 'N/A')}")
+            print(f"🎯 Fontes únicas: {analise.get('quantidade_fontes', 0)}")
+            
+            # Verificar distribuição de sentimentos
+            distribuicao = analise.get('distribuicao_sentimentos', {})
+            if distribuicao:
+                print(f"📋 Distribuição de sentimentos:")
+                for sentimento, quantidade in distribuicao.items():
+                    print(f"   {sentimento}: {quantidade}")
+            
+            # Verificar tickers
+            if dados_news.get('tickers_analisados'):
+                tickers_info = dados_news['tickers_analisados']
+                print(f"💹 Tickers analisados: {tickers_info.get('total_tickers_unicos', 0)}")
+                
+                tickers_mais_citados = tickers_info.get('tickers_mais_citados', {})
+                if tickers_mais_citados:
+                    print(f"🏆 Tickers mais citados:")
+                    for ticker, count in list(tickers_mais_citados.items())[:5]:
+                         print(f"   {ticker}: {count} menções")
+            
+            # Exportar resultados
+            exportar_resultados(dados_news)
+            
+            print("\n🎉 PROCESSAMENTO CONCLUÍDO!")
+        else:
+            print("❌ Falha no processamento dos dados!")
