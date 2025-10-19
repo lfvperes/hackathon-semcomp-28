@@ -4,4 +4,4 @@
 
 * Luís Peres
 * Vinicius Costa
-* Gustavo (Cuca Beludo)
+* Gustavo Teixeira
