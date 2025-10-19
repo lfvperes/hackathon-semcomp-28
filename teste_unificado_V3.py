@@ -755,4 +755,204 @@ class AlphaVantageProcessor:
 # ============ SISTEMA PRINCIPAL ============
 
 class SistemaInvestimentos:
-    """Sistema principal un
+    """Sistema principal unificado de recomendações e análise"""
+    
+    def __init__(self, caminho_dados_nasdaq=None):
+        self.clientes = []
+        self.sistema_recomendacao = None
+        self.processor = AlphaVantageProcessor()
+        
+        # Carregar dados da NASDAQ ou usar exemplo
+        if caminho_dados_nasdaq and os.path.exists(caminho_dados_nasdaq):
+            print(f"📂 Carregando dados da NASDAQ de {caminho_dados_nasdaq}...")
+            try:
+                self.dados_nasdaq = pd.read_csv(caminho_dados_nasdaq)
+                self.sistema_recomendacao = SistemaRecomendacao(self.dados_nasdaq)
+                print("✅ Dados da NASDAQ carregados com sucesso!")
+            except Exception as e:
+                print(f"❌ Erro ao carregar dados da NASDAQ: {e}")
+                self._criar_dados_exemplo()
+        else:
+            print("📋 Usando dados de exemplo para demonstração...")
+            self._criar_dados_exemplo()
+    
+    def _criar_dados_exemplo(self):
+        """Cria dados de exemplo para demonstração"""
+        dados_exemplo = {
+            'Symbol': ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'TSLA', 'JNJ', 'JPM', 'V', 'PG'],
+            'Name': ['Apple Inc', 'Microsoft Corp', 'Alphabet Inc', 'Amazon.com Inc', 
+                    'NVIDIA Corp', 'Tesla Inc', 'Johnson & Johnson', 'JPMorgan Chase & Co',
+                    'Visa Inc', 'Procter & Gamble Co'],
+            'Country': ['USA', 'USA', 'USA', 'USA', 'USA', 'USA', 'USA', 'USA', 'USA', 'USA'],
+            'Sector': ['Technology', 'Technology', 'Technology', 'Consumer Cyclical',
+                      'Technology', 'Consumer Cyclical', 'Healthcare', 'Financial Services',
+                      'Financial Services', 'Consumer Defensive'],
+            'Industry': ['Consumer Electronics', 'Software—Infrastructure', 'Internet Content & Information',
+                        'Internet Retail', 'Semiconductors', 'Auto Manufacturers', 'Drug Manufacturers—General',
+                        'Banks—Diversified', 'Credit Services', 'Household & Personal Products'],
+            'PC': [2.5, 1.8, 3.2, 1.2, 5.7, 3.1, 0.8, 1.2, 2.1, 0.5],  # Todos positivos para demo
+            'LS': [150.0, 330.0, 2800.0, 3400.0, 850.0, 200.0, 160.0, 170.0, 230.0, 150.0]
+        }
+        self.dados_nasdaq = pd.DataFrame(dados_exemplo)
+        self.sistema_recomendacao = SistemaRecomendacao(self.dados_nasdaq)
+        print("✅ Dados de exemplo criados com sucesso!")
+    
+    def cadastrar_cliente(self, id, nome, perfil, tickers, quantidades):
+        """Cadastra um novo cliente no sistema"""
+        carteira = Carteira(tickers, quantidades)
+        cliente = Cliente(id, nome, perfil, carteira)
+        self.clientes.append(cliente)
+        print(f"✅ Cliente {nome} cadastrado com sucesso!")
+        return cliente
+    
+    def mostrar_clientes(self):
+        """Exibe todos os clientes cadastrados e retorna como string"""
+        buffer = f"\n👥 CLIENTES CADASTRADOS ({len(self.clientes)})\n" + "=" * 50 + "\n"
+        print(buffer.strip())
+        
+        for cliente in self.clientes:
+            buffer += cliente.mostrar_perfil()
+        
+        return buffer
+    
+    def gerar_recomendacoes(self, cliente_id, top_n=5):
+        """Gera recomendações para um cliente específico"""
+        cliente = next((c for c in self.clientes if c.id == cliente_id), None)
+        if not cliente:
+            erro_msg = f"❌ Cliente {cliente_id} não encontrado"
+            print(erro_msg)
+            return None, erro_msg
+        
+        if not self.sistema_recomendacao:
+            erro_msg = "❌ Sistema de recomendação não disponível"
+            print(erro_msg)
+            return None, erro_msg
+        
+        # Gerar recomendações
+        buffer_recomendacoes, recomendacoes = self.sistema_recomendacao.recomendar_acoes(cliente, top_n)
+        
+        return {
+            'cliente': cliente,
+            'recomendacoes': recomendacoes,
+            'buffer': buffer_recomendacoes
+        }, buffer_recomendacoes
+    
+    def executar_demo_completa(self):
+        """Executa uma demonstração completa do sistema e retorna string com resultados"""
+        buffer = "🚀 INICIANDO DEMONSTRAÇÃO COMPLETA DO SISTEMA\n" + "=" * 60 + "\n"
+        print(buffer.strip())
+        
+        # Criar clientes de teste
+        buffer += "\n1. 👥 CRIANDO CLIENTES DE TESTE\n" + "-" * 30 + "\n"
+        print("\n1. 👥 CRIANDO CLIENTES DE TESTE")
+        print("-" * 30)
+        
+        self.cadastrar_cliente(
+            '0001', 'Luis Felipe Vamo', 'moderado',
+            ['AAPL', 'MSFT', 'JNJ'], [50, 30, 15]
+        )
+        
+        self.cadastrar_cliente(
+            '0002', 'Gustavo Cuca', 'arrojado', 
+            ['NVDA', 'GOOGL', 'TSLA'], [15, 35, 20]
+        )
+        
+        buffer += self.mostrar_clientes()
+        
+        # Gerar recomendações
+        if self.sistema_recomendacao:
+            buffer += "\n2. 🎯 GERANDO RECOMENDAÇÕES\n" + "-" * 30 + "\n"
+            print("\n2. 🎯 GERANDO RECOMENDAÇÕES")
+            print("-" * 30)
+            
+            for cliente in self.clientes:
+                buffer += f"\n💼 Gerando recomendações para {cliente.nome}...\n"
+                print(f"\n💼 Gerando recomendações para {cliente.nome}...")
+                
+                resultado, buffer_recomendacoes = self.gerar_recomendacoes(cliente.id, top_n=3)
+                buffer += buffer_recomendacoes
+                
+                if resultado and resultado['recomendacoes']:
+                    buffer += f"\n✅ RECOMENDAÇÕES PARA {cliente.nome}:\n"
+                    print(f"\n✅ RECOMENDAÇÕES PARA {cliente.nome}:")
+                    for i, simbolo in enumerate(resultado['recomendacoes'], 1):
+                        linha = f"   {i}. {simbolo}"
+                        print(linha)
+                        buffer += linha + "\n"
+                    
+                    # Análise completa das recomendações
+                    buffer += f"\n🔍 INICIANDO ANÁLISE COMPLETA DAS RECOMENDAÇÕES...\n"
+                    print(f"\n🔍 INICIANDO ANÁLISE COMPLETA DAS RECOMENDAÇÕES...")
+                    analises, buffer_analises = self.processor.analisar_recomendacoes(resultado['recomendacoes'])
+                    buffer += buffer_analises
+                    
+                    # Resumo consolidado
+                    buffer += f"\n📊 RESUMO CONSOLIDADO PARA {cliente.nome}:\n"
+                    print(f"\n📊 RESUMO CONSOLIDADO PARA {cliente.nome}:")
+                    for simbolo in resultado['recomendacoes']:
+                        analise_tecnica = analises['tecnicas'].get(simbolo, {})
+                        analise_noticias = analises['noticias'].get(simbolo, {})
+                        
+                        resumo_acao = f"\n🏷️  {simbolo}:\n"
+                        if 'preco_atual' in analise_tecnica:
+                            resumo_acao += f"   💰 Preço: ${analise_tecnica['preco_atual']:.2f}\n"
+                        if 'tendencia' in analise_tecnica:
+                            resumo_acao += f"   📈 Tendência: {analise_tecnica['tendencia']}\n"
+                        if 'sentimento_principal' in analise_noticias:
+                            resumo_acao += f"   📰 Sentimento: {analise_noticias['sentimento_principal']}\n"
+                        
+                        print(resumo_acao.strip())
+                        buffer += resumo_acao
+                            
+                else:
+                    erro_msg = f"❌ Não foi possível gerar recomendações para {cliente.nome}"
+                    print(erro_msg)
+                    buffer += erro_msg + "\n"
+        
+        # Demonstração adicional de notícias
+        buffer += "\n3. 📰 DEMONSTRAÇÃO DE ANÁLISE DE NOTÍCIAS\n" + "-" * 30 + "\n"
+        print("\n3. 📰 DEMONSTRAÇÃO DE ANÁLISE DE NOTÍCIAS")
+        print("-" * 30)
+        
+        tickers_demo = "AAPL,MSFT,GOOGL"
+        buffer += f"📊 Analisando notícias para {tickers_demo}...\n"
+        print(f"📊 Analisando notícias para {tickers_demo}...")
+        
+        sucesso, msg_busca = self.processor.buscar_noticias(tickers_demo, limit=5)
+        buffer += msg_busca + "\n"
+        
+        if sucesso:
+            sucesso_process, msg_process = self.processor.processar_noticias()
+            buffer += msg_process + "\n"
+            if sucesso_process:
+                resumo_noticias = self.processor.mostrar_resumo_noticias("AAPL")
+                buffer += resumo_noticias
+        
+        buffer += "\n🎉 DEMONSTRAÇÃO COMPLETA CONCLUÍDA!\n"
+        buffer += "\n💡 DICAS:\n"
+        buffer += "   - Para usar dados reais, baixe o arquivo nasdaq_screener.csv do site da NASDAQ\n"
+        buffer += "   - A API da Alpha Vantage tem limites gratuitos (5 requests por minuto)\n"
+        buffer += "   - O sistema funciona completamente offline com dados de exemplo\n"
+        
+        print("\n🎉 DEMONSTRAÇÃO COMPLETA CONCLUÍDA!")
+        print("\n💡 DICAS:")
+        print("   - Para usar dados reais, baixe o arquivo nasdaq_screener.csv do site da NASDAQ")
+        print("   - A API da Alpha Vantage tem limites gratuitos (5 requests por minuto)")
+        print("   - O sistema funciona completamente offline com dados de exemplo")
+        
+        return buffer
+
+# ============ EXECUÇÃO PRINCIPAL ============
+
+if __name__ == "__main__":
+    # Criar sistema - funciona mesmo sem arquivo da NASDAQ
+    sistema = SistemaInvestimentos()  # Sem caminho específico - usa dados de exemplo
+    
+    # Executar demonstração completa e obter resultado como string
+    resultado_completo = sistema.executar_demo_completa()
+    
+    # Exemplo de como usar o resultado
+    print("\n" + "=" * 80)
+    print("📄 RESULTADO COMPLETO DA EXECUÇÃO (STRING):")
+    print("=" * 80)
+    print(resultado_completo)
