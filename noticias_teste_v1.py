@@ -7,7 +7,7 @@ import pathlib as Path
 import re
 from collections import Counter
 
-url = 'https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=AAPL&apikey=HE6JJP6N87RFIOD9'
+url = 'https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=ERJ&apikey=HE6JJP6N87RFIOD9'
 r = requests.get(url)
 data = r.json()
 print(data)

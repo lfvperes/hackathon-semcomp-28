@@ -360,18 +360,25 @@ class AlphaVantageNewsProcessor:
                 print(f"   {sentimento}: {quantidade}")
         
         # Tickers analisados
+        resposta = ''
         if self.dados_estruturados.get('tickers_analisados'):
             tickers_info = self.dados_estruturados['tickers_analisados']
             print(f"\n💹 TICKERS ANALISADOS:")
+            resposta = resposta + f"\n💹 TICKERS ANALISADOS:\n"
             print(f"   Total de tickers únicos: {tickers_info.get('total_tickers_unicos', 0)}")
+            resposta = resposta + f"   Total de tickers únicos: {tickers_info.get('total_tickers_unicos', 0)}\n"
             
             tickers_mais_citados = tickers_info.get('tickers_mais_citados', {})
             if tickers_mais_citados:
                 print(f"\n🏆 TOP 5 TICKERS MAIS CITADOS:")
+                resposta = resposta + f"\n🏆 TOP 5 TICKERS MAIS CITADOS:\n"
                 print(len(list(tickers_mais_citados)))
+                resposta = resposta + f"{len(list(tickers_mais_citados))}\n"
                 for ticker, count in list(tickers_mais_citados.items())[:5]:
                     print(f"   {ticker}: {count} menções")
-
+                    resposta = resposta + f"{f"   {ticker}: {count} menções"}\n"
+        print("resposta: " + resposta)
+        return resposta
 
 # ============ EXECUÇÃO PRINCIPAL ============
 

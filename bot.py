@@ -1,18 +1,6 @@
-import sys
-import os
-
-# 1. Get the directory of the current file (src)
-current_dir = os.path.dirname(os.path.abspath(__file__))
-# 2. Get the path two folders up
-project_root = os.path.abspath(os.path.join(current_dir, '..', '..'))
-
-# 3. Add that path to the list of places Python looks for modules
-sys.path.append(project_root)
-
-# 4. Now, your original import will work
 from uniao_noticias_request import AlphaVantageNewsProcessor
 
-news_getter = AlphaVantageNewsProcessor()
+processor = AlphaVantageNewsProcessor()
 
 from flask import Flask, request, jsonify
 import requests
@@ -76,10 +64,13 @@ def webhook():
             state = user_states.get(sender)
             if state == 'awaiting_investment_choice':
                 if text == '1' or 'option 1' in text:
-                    handle_option_one(sender)
+                    updated_stocks(sender)
                     del user_states[sender]  # Clear the state
                 elif text == '2' or 'option 2' in text:
-                    handle_option_two(sender)
+                    see_portfolio(sender)
+                    del user_states[sender]  # Clear the state
+                elif text == '3' or 'option 2' in text:
+                    recommendations(sender)
                     del user_states[sender]  # Clear the state
                 else:
                     send_message(sender, "Sorry, I didn't understand that. Please reply with '1' or '2'.")
@@ -93,7 +84,8 @@ def webhook():
                 reply_text = (
                     "Você está interessado em investimentos! Por favor escolha uma opção e responda com o número:\n\n"
                     "1. Ver cotações atualizadas\n"
-                    "2. Ver minha carteira"
+                    "2. Ver minha carteira\n"
+                    "3. Ver recomendações"
                 )
                 send_message(sender, reply_text)
 
@@ -150,21 +142,39 @@ def send_list(to, title, description, button_text, footer_text, sections):
     print(f"Sent list response: {response.status_code}")
     print(f"Response body: {response.text}") # Added for more detailed debugging
     return response
-def handle_option_one(sender):
+def updated_stocks(sender):
     """Placeholder function for when the user chooses option 1."""
     print(f"✅ Handling 'See stock news' for {sender}")
     # Here you would call your method from uniao_noticias_request
-    reply_text = "You chose to see stock news! Fetching the latest updates now..."
-    send_message(sender, reply_text)
+    result = ""
+    if processor.fazer_requisicao_api():
+        # 2. Salvar dados brutos
+        processor.salvar_dados_brutos()
+        
+        # 3. Processar dados
+        if processor.processar_dados():
+            # 4. Mostrar resumo
+            result = processor.mostrar_resumo()
+            
+            # 5. Exportar resultados
+            processor.exportar_resultados()
+        
+    send_message(sender, result)
     # Add your news fetching logic here
 
-def handle_option_two(sender):
+def see_portfolio(sender):
     """Placeholder function for when the user chooses option 2."""
     print(f"✅ Handling 'Check my portfolio' for {sender}")
     # Here you would add your portfolio logic
     reply_text = "You chose to check your portfolio! Looking that up for you..."
     send_message(sender, reply_text)
     # Add your portfolio logic here
+
+def recommendations(sender):
+    print(f"✅ Handling 'See recommendations' for {sender}")
+
+    reply_text = "Você escolheu recomendações. Aqui estão: "
+    send_message(sender, reply_text)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
