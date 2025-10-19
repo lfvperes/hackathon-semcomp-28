@@ -23,7 +23,7 @@ def webhook():
         return jsonify({"status": "error", "message": "No data"}), 400
     
     # Check if it's a message event
-    if data.get('type') == 'messages.upsert':
+    if data.get('event') == 'messages.upsert':
         message_data = data.get('data', {})
         
         print("🟡 Processing 'messages.upsert' event")
@@ -52,7 +52,8 @@ def webhook():
             
             # Check for "hello" anywhere in the message
             if "hello" in text:
-                reply_text = "Hello! I received your message and my Python script is working!"
+                reply_text = "YOU JUST LOST THE GAME"
+                # reply_text = "Hello! I received your message and my Python script is working!"
                 print(f"✅ Triggering reply: {reply_text}")
                 send_message(sender, reply_text)
             else:
@@ -60,7 +61,7 @@ def webhook():
         else:
             print("🔶 Not a standard conversation message, ignoring")
     else:
-        print(f"🔶 Other event type: {data.get('type')}")
+        print(f"🔶 Other event type: {data.get('event')}")
     
     return jsonify({"status": "ok"})
 def send_message(to, text):
