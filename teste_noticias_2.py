@@ -10,12 +10,14 @@ from collections import Counter
 
 def fazer_requisicao_news():
     """Faz a requisição para a API de News da Alpha Vantage"""
-    url = f'https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=AAPL&apikey=N87RF3S81RK39MFM64RYU'
+    
+    api_key = "HE6JJP6N87RFIOD9"
+    url = f'https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=AAPL&apikey={api_key}'
     
     try:
         print("🌐 Fazendo requisição para a API...")
         r = requests.get(url)
-        r.raise_for_status()  # Verifica se houve erros na requisição
+        r.raise_for_status()
         data = r.json()
         
         # VERIFICAR SE A API RETORNOU ERRO
@@ -27,14 +29,8 @@ def fazer_requisicao_news():
             print(f"❌ ERRO DA API: {data['Error Message']}")
             return None
         
-        if 'Note' in data:
-            print(f"⚠️ AVISO DA API: {data['Note']}")
-            # Continua o processamento mesmo com aviso
-        
-        # VERIFICAR SE EXISTEM DADOS DE NEWS
         if 'feed' not in data:
             print("❌ Nenhum dado de 'feed' encontrado na resposta da API")
-            print("📋 Chaves disponíveis:", list(data.keys()))
             return None
         
         if not data.get('feed'):
@@ -47,9 +43,6 @@ def fazer_requisicao_news():
     except requests.exceptions.RequestException as e:
         print(f"❌ Erro na requisição: {e}")
         return None
-    except json.JSONDecodeError:
-        print("❌ Erro ao decodificar o JSON da resposta.")
-        return None
 
 def salvar_dados_api(data, nome_arquivo='news_sentiments.json'):
     """Salva os dados da API em arquivo JSON"""
@@ -61,10 +54,8 @@ def salvar_dados_api(data, nome_arquivo='news_sentiments.json'):
         diretorio_saida = r'C:\Users\Acer\Downloads'
         caminho_completo = os.path.join(diretorio_saida, nome_arquivo)
         
-        # Garante que o diretório de destino exista
         os.makedirs(diretorio_saida, exist_ok=True)
         
-        # Salva o arquivo
         with open(caminho_completo, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
         
@@ -88,11 +79,6 @@ def processar_news_sentiments(arquivo_json):
         
         print("✅ Arquivo de News carregado com sucesso!")
         
-        # VERIFICAR SE A API RETORNOU ERRO NO ARQUIVO SALVO
-        if 'Information' in dados:
-            print(f"❌ ERRO DA API no arquivo: {dados['Information']}")
-            return None
-        
         if 'feed' not in dados:
             print("❌ Nenhum dado de 'feed' encontrado no arquivo")
             return None
@@ -101,6 +87,8 @@ def processar_news_sentiments(arquivo_json):
         if not feed_noticias:
             print("⚠️ O 'feed' de notícias está vazio")
             return None
+        
+        print(f"📊 Processando {len(feed_noticias)} notícias...")
         
         # ESTRUTURA PRINCIPAL
         estrutura_organizada = {
@@ -170,11 +158,11 @@ def processar_news_sentiments(arquivo_json):
                 'topicos_principais': obter_topics_mais_comuns(noticias_processadas)
             }
             
-            # ESTATÍSTICAS DETALHADAS
+            # ESTATÍSTICAS DETALHADAS - CORRIGIDO
             estrutura_organizada['estatisticas_detalhadas'] = {
                 'publicacoes_por_fonte': df_noticias['fonte_publicacao'].value_counts().to_dict() if 'fonte_publicacao' in df_noticias.columns else {},
                 'publicacoes_por_data': df_noticias['data_publicacao'].value_counts().to_dict() if 'data_publicacao' in df_noticias.columns else {},
-                'evolucao_sentimento_diaria': calcular_evolucao_sentimento(df_noticias)
+                'evolucao_sentimento_diaria': calcular_evolucao_sentimento(df_noticias)  # Esta função foi corrigida
             }
             
             # ANÁLISE POR TICKER
@@ -252,28 +240,41 @@ def obter_topics_mais_comuns(noticias):
             if isinstance(topic, str):
                 topic_name = topic.split(' (relevância:')[0].strip()
                 all_topics.append(topic_name)
-    
     return dict(Counter(all_topics).most_common(10))
 
 def calcular_evolucao_sentimento(df_noticias):
-    """Calcular evolução do sentimento por dia"""
+    """Calcular evolução do sentimento por dia - CORRIGIDA"""
     try:
         if 'data_publicacao' not in df_noticias.columns or 'score_sentimento' not in df_noticias.columns:
             return {}
             
         df_noticias['data'] = pd.to_datetime(df_noticias['data_publicacao']).dt.date
+        
+        # CORREÇÃO: Converter datas para string antes de criar o dicionário
         evolucao = df_noticias.groupby('data').agg({
             'score_sentimento': 'mean',
             'titulo': 'count'
         }).round(4)
-        return evolucao.to_dict()
-    except:
+        
+        # Converter o índice de data para string
+        evolucao_dict = {}
+        for data, row in evolucao.iterrows():
+            data_str = data.strftime('%Y-%m-%d')  # Converter date para string
+            evolucao_dict[data_str] = {
+                'sentimento_medio': float(row['score_sentimento']),
+                'total_noticias': int(row['titulo'])
+            }
+        
+        return evolucao_dict
+        
+    except Exception as e:
+        print(f"⚠️ Aviso na evolução de sentimento: {e}")
         return {}
 
 # ============ PARTE 3: EXPORTAÇÃO ============
 
 def exportar_resultados(dados_estruturados, prefixo="news_sentiments"):
-    """Exporta os dados estruturados em JSON e CSV (sem Excel)"""
+    """Exporta os dados estruturados em JSON e CSV"""
     
     if not dados_estruturados:
         print("❌ Nenhum dado para exportar!")
@@ -285,7 +286,7 @@ def exportar_resultados(dados_estruturados, prefixo="news_sentiments"):
         # 1. Exportar JSON completo
         caminho_json = os.path.join(diretorio_saida, f"{prefixo}_estruturado.json")
         with open(caminho_json, 'w', encoding='utf-8') as f:
-            json.dump(dados_estruturados, f, indent=2, ensure_ascii=False)
+            json.dump(dados_estruturados, f, indent=2, ensure_ascii=False, default=str)
         print(f"💾 JSON salvo: {caminho_json}")
         
         # 2. Exportar notícias em CSV
@@ -295,10 +296,28 @@ def exportar_resultados(dados_estruturados, prefixo="news_sentiments"):
             df_noticias.to_csv(caminho_csv, index=False, encoding='utf-8')
             print(f"💾 CSV salvo: {caminho_csv}")
             
+            # 3. Exportar análise de tickers em CSV
+            if dados_estruturados.get('tickers_analisados'):
+                tickers_data = []
+                for ticker, info in dados_estruturados['tickers_analisados']['analise_sentimento_tickers'].items():
+                    tickers_data.append({
+                        'ticker': ticker,
+                        'sentimento_medio': info['sentimento_medio'],
+                        'total_mencoes': info['total_mencoes'],
+                        'relevancia_media': info['relevancia_media']
+                    })
+                
+                df_tickers = pd.DataFrame(tickers_data)
+                caminho_tickers = os.path.join(diretorio_saida, f"{prefixo}_tickers.csv")
+                df_tickers.to_csv(caminho_tickers, index=False, encoding='utf-8')
+                print(f"💾 CSV de tickers salvo: {caminho_tickers}")
+        
         print("✅ Exportação concluída com sucesso!")
         
     except Exception as e:
         print(f"❌ Erro na exportação: {e}")
+        import traceback
+        traceback.print_exc()
 
 # ============ EXECUÇÃO PRINCIPAL ============
 
@@ -324,7 +343,9 @@ if __name__ == "__main__":
     dados_news = processar_news_sentiments(caminho_arquivo)
     
     if dados_news:
-        print("\n✅ DADOS ORGANIZADOS COM SUCESSO!")
+        print("\n" + "=" * 50)
+        print("✅ DADOS ORGANIZADOS COM SUCESSO!")
+        print("=" * 50)
         
         metadados = dados_news['metadados_gerais']
         analise = dados_news['analise_sentimentos']
@@ -336,24 +357,36 @@ if __name__ == "__main__":
         # Verificar distribuição de sentimentos
         distribuicao = analise.get('distribuicao_sentimentos', {})
         if distribuicao:
-            print(f"📋 Distribuição de sentimentos:")
+            print(f"\n📋 DISTRIBUIÇÃO DE SENTIMENTOS:")
             for sentimento, quantidade in distribuicao.items():
-                print(f"   {sentimento}: {quantidade}")
+                print(f"   {sentimento}: {quantidade} notícias")
         
         # Verificar tickers
         if dados_news.get('tickers_analisados'):
             tickers_info = dados_news['tickers_analisados']
-            print(f"💹 Tickers analisados: {tickers_info.get('total_tickers_unicos', 0)}")
+            print(f"\n💹 TICKERS ANALISADOS:")
+            print(f"   Total de tickers únicos: {tickers_info.get('total_tickers_unicos', 0)}")
             
             tickers_mais_citados = tickers_info.get('tickers_mais_citados', {})
             if tickers_mais_citados:
-                print(f"🏆 Tickers mais citados:")
-                for ticker, count in list(tickers_mais_citados.items())[:5]:
-                    print(f"   {ticker}: {count} menções")
+                print(f"\n🏆 TOP 5 TICKERS MAIS CITADOS:")
+                for i, (ticker, count) in enumerate(list(tickers_mais_citados.items())[:5], 1):
+                    print(f"   {i}. {ticker}: {count} menções")
+        
+        # Verificar evolução do sentimento
+        evolucao = dados_news['estatisticas_detalhadas'].get('evolucao_sentimento_diaria', {})
+        if evolucao:
+            print(f"\n📅 EVOLUÇÃO DO SENTIMENTO POR DIA:")
+            for data, info in list(evolucao.items())[:3]:  # Mostrar apenas 3 primeiros dias
+                print(f"   {data}: Sentimento {info['sentimento_medio']} ({info['total_noticias']} notícias)")
         
         # 4. Exportar resultados
+        print(f"\n📤 EXPORTANDO RESULTADOS...")
         exportar_resultados(dados_news)
         
-        print("\n🎉 PROCESSAMENTO CONCLUÍDO!")
+        print("\n" + "=" * 50)
+        print("🎉 PROCESSAMENTO CONCLUÍDO!")
+        print("=" * 50)
+        
     else:
         print("❌ Falha no processamento dos dados!")
