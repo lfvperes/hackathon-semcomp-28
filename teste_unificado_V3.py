@@ -837,122 +837,99 @@ class SistemaInvestimentos:
             'buffer': buffer_recomendacoes
         }, buffer_recomendacoes
     
-    def executar_demo_completa(self):
-        """Executa uma demonstração completa do sistema e retorna string com resultados"""
-        buffer = "🚀 INICIANDO DEMONSTRAÇÃO COMPLETA DO SISTEMA\n" + "=" * 60 + "\n"
-        print(buffer.strip())
-        
-        # Criar clientes de teste
-        buffer += "\n1. 👥 CRIANDO CLIENTES DE TESTE\n" + "-" * 30 + "\n"
-        print("\n1. 👥 CRIANDO CLIENTES DE TESTE")
-        print("-" * 30)
-        
-        self.cadastrar_cliente(
+    # ============ EXECUÇÃO PRINCIPAL E FUNÇÕES DE DEMO ============
+
+# Criar uma instância global do sistema para ser usada pelo bot
+# O sistema é inicializado com dados de exemplo se o arquivo NASDAQ não for encontrado
+print("🚀 Inicializando o Sistema de Investimentos...")
+sistema_global = SistemaInvestimentos()
+
+def inicializar_clientes_demo(sistema):
+    """Cria os clientes de demonstração se eles ainda não existirem."""
+    if not sistema.clientes:
+        print("👥 Criando clientes de demonstração...")
+        sistema.cadastrar_cliente(
             '0001', 'Luis Felipe Vamo', 'moderado',
             ['AAPL', 'MSFT', 'JNJ'], [50, 30, 15]
         )
-        
-        self.cadastrar_cliente(
+        sistema.cadastrar_cliente(
             '0002', 'Gustavo Cuca', 'arrojado', 
             ['NVDA', 'GOOGL', 'TSLA'], [15, 35, 20]
         )
+
+# Inicializar os clientes uma vez quando o módulo é carregado
+inicializar_clientes_demo(sistema_global)
+
+
+def demo_mostrar_carteira(cliente_id):
+    """
+    Busca um cliente e retorna as informações de seu perfil e carteira.
+    """
+    print(f"🔍 Buscando carteira para o cliente ID: {cliente_id}")
+    cliente = next((c for c in sistema_global.clientes if c.id == cliente_id), None)
+    
+    if not cliente:
+        return f"❌ Cliente com ID {cliente_id} não encontrado."
+    
+    # Reutiliza o método da classe Cliente para formatar a saída
+    return cliente.mostrar_perfil()
+
+
+def demo_gerar_recomendacoes(cliente_id, top_n=3):
+    """
+    Gera e analisa recomendações para um cliente, retornando um resumo completo.
+    """
+    print(f"🎯 Gerando recomendações para o cliente ID: {cliente_id}")
+    cliente = next((c for c in sistema_global.clientes if c.id == cliente_id), None)
+
+    if not cliente:
+        return f"❌ Cliente com ID {cliente_id} não encontrado."
+    
+    # 1. Gerar recomendações
+    resultado, buffer_rec = sistema_global.gerar_recomendacoes(cliente.id, top_n)
+    
+    if not resultado or not resultado['recomendacoes']:
+        return buffer_rec # Retorna a mensagem de erro da geração de recomendação
+    
+    recomendacoes = resultado['recomendacoes']
+    buffer_final = buffer_rec
+    
+    # 2. Analisar as recomendações (técnica + notícias)
+    print(f"🔍 Analisando as recomendações: {recomendacoes}...")
+    analises, buffer_analises = sistema_global.processor.analisar_recomendacoes(recomendacoes)
+    buffer_final += buffer_analises
+    
+    # 3. Criar resumo consolidado
+    resumo_consolidado = f"\n📊 RESUMO CONSOLIDADO PARA {cliente.nome}:\n"
+    for simbolo in recomendacoes:
+        analise_tecnica = analises['tecnicas'].get(simbolo, {})
+        analise_noticias = analises['noticias'].get(simbolo, {})
         
-        buffer += self.mostrar_clientes()
-        
-        # Gerar recomendações
-        if self.sistema_recomendacao:
-            buffer += "\n2. 🎯 GERANDO RECOMENDAÇÕES\n" + "-" * 30 + "\n"
-            print("\n2. 🎯 GERANDO RECOMENDAÇÕES")
-            print("-" * 30)
+        resumo_consolidado += f"\n🏷️  {simbolo}:\n"
+        if 'preco_atual' in analise_tecnica:
+            resumo_consolidado += f"   💰 Preço: ${analise_tecnica.get('preco_atual', 0):.2f}\n"
+        if 'tendencia' in analise_tecnica:
+            resumo_consolidado += f"   📈 Tendência: {analise_tecnica.get('tendencia', 'N/A')}\n"
+        if 'sentimento_principal' in analise_noticias:
+            resumo_consolidado += f"   📰 Sentimento (Notícias): {analise_noticias.get('sentimento_principal', 'N/A')}\n"
             
-            for cliente in self.clientes:
-                buffer += f"\n💼 Gerando recomendações para {cliente.nome}...\n"
-                print(f"\n💼 Gerando recomendações para {cliente.nome}...")
-                
-                resultado, buffer_recomendacoes = self.gerar_recomendacoes(cliente.id, top_n=3)
-                buffer += buffer_recomendacoes
-                
-                if resultado and resultado['recomendacoes']:
-                    buffer += f"\n✅ RECOMENDAÇÕES PARA {cliente.nome}:\n"
-                    print(f"\n✅ RECOMENDAÇÕES PARA {cliente.nome}:")
-                    for i, simbolo in enumerate(resultado['recomendacoes'], 1):
-                        linha = f"   {i}. {simbolo}"
-                        print(linha)
-                        buffer += linha + "\n"
-                    
-                    # Análise completa das recomendações
-                    buffer += f"\n🔍 INICIANDO ANÁLISE COMPLETA DAS RECOMENDAÇÕES...\n"
-                    print(f"\n🔍 INICIANDO ANÁLISE COMPLETA DAS RECOMENDAÇÕES...")
-                    analises, buffer_analises = self.processor.analisar_recomendacoes(resultado['recomendacoes'])
-                    buffer += buffer_analises
-                    
-                    # Resumo consolidado
-                    buffer += f"\n📊 RESUMO CONSOLIDADO PARA {cliente.nome}:\n"
-                    print(f"\n📊 RESUMO CONSOLIDADO PARA {cliente.nome}:")
-                    for simbolo in resultado['recomendacoes']:
-                        analise_tecnica = analises['tecnicas'].get(simbolo, {})
-                        analise_noticias = analises['noticias'].get(simbolo, {})
-                        
-                        resumo_acao = f"\n🏷️  {simbolo}:\n"
-                        if 'preco_atual' in analise_tecnica:
-                            resumo_acao += f"   💰 Preço: ${analise_tecnica['preco_atual']:.2f}\n"
-                        if 'tendencia' in analise_tecnica:
-                            resumo_acao += f"   📈 Tendência: {analise_tecnica['tendencia']}\n"
-                        if 'sentimento_principal' in analise_noticias:
-                            resumo_acao += f"   📰 Sentimento: {analise_noticias['sentimento_principal']}\n"
-                        
-                        print(resumo_acao.strip())
-                        buffer += resumo_acao
-                            
-                else:
-                    erro_msg = f"❌ Não foi possível gerar recomendações para {cliente.nome}"
-                    print(erro_msg)
-                    buffer += erro_msg + "\n"
-        
-        # Demonstração adicional de notícias
-        buffer += "\n3. 📰 DEMONSTRAÇÃO DE ANÁLISE DE NOTÍCIAS\n" + "-" * 30 + "\n"
-        print("\n3. 📰 DEMONSTRAÇÃO DE ANÁLISE DE NOTÍCIAS")
-        print("-" * 30)
-        
-        tickers_demo = "AAPL,MSFT,GOOGL"
-        buffer += f"📊 Analisando notícias para {tickers_demo}...\n"
-        print(f"📊 Analisando notícias para {tickers_demo}...")
-        
-        sucesso, msg_busca = self.processor.buscar_noticias(tickers_demo, limit=5)
-        buffer += msg_busca + "\n"
-        
-        if sucesso:
-            sucesso_process, msg_process = self.processor.processar_noticias()
-            buffer += msg_process + "\n"
-            if sucesso_process:
-                resumo_noticias = self.processor.mostrar_resumo_noticias("AAPL")
-                buffer += resumo_noticias
-        
-        buffer += "\n🎉 DEMONSTRAÇÃO COMPLETA CONCLUÍDA!\n"
-        buffer += "\n💡 DICAS:\n"
-        buffer += "   - Para usar dados reais, baixe o arquivo nasdaq_screener.csv do site da NASDAQ\n"
-        buffer += "   - A API da Alpha Vantage tem limites gratuitos (5 requests por minuto)\n"
-        buffer += "   - O sistema funciona completamente offline com dados de exemplo\n"
-        
-        print("\n🎉 DEMONSTRAÇÃO COMPLETA CONCLUÍDA!")
-        print("\n💡 DICAS:")
-        print("   - Para usar dados reais, baixe o arquivo nasdaq_screener.csv do site da NASDAQ")
-        print("   - A API da Alpha Vantage tem limites gratuitos (5 requests por minuto)")
-        print("   - O sistema funciona completamente offline com dados de exemplo")
-        
-        return buffer
+    buffer_final += resumo_consolidado
+    print("✅ Análise completa concluída.")
+    
+    return buffer_final
 
 # ============ EXECUÇÃO PRINCIPAL ============
 
 if __name__ == "__main__":
-    # Criar sistema - funciona mesmo sem arquivo da NASDAQ
-    sistema = SistemaInvestimentos()  # Sem caminho específico - usa dados de exemplo
+    # Demonstração de como usar as novas funções
+    print("\n" + "="*50)
+    print("DEMO 1: MOSTRAR CARTEIRA DO CLIENTE 0001")
+    print("="*50)
+    resultado_carteira = demo_mostrar_carteira('0001')
+    print(resultado_carteira)
     
-    # Executar demonstração completa e obter resultado como string
-    resultado_completo = sistema.executar_demo_completa()
-    
-    # Exemplo de como usar o resultado
-    print("\n" + "=" * 80)
-    print("📄 RESULTADO COMPLETO DA EXECUÇÃO (STRING):")
-    print("=" * 80)
-    print(resultado_completo)
+    print("\n" + "="*50)
+    print("DEMO 2: GERAR RECOMENDAÇÕES PARA CLIENTE 0002")
+    print("="*50)
+    resultado_recomendacoes = demo_gerar_recomendacoes('0002')
+    print(resultado_recomendacoes)

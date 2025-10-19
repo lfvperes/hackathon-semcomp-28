@@ -155,7 +155,12 @@ def handle_option_one(sender):
     print(f"✅ Handling 'See stock news' for {sender}")
     # Here you would call your method from uniao_noticias_request
     reply_text = "You chose to see stock news! Fetching the latest updates now..."
-    send_message(sender, reply_text)
+    result = ""
+    if news_getter.fazer_requisicao_api():
+        result = news_getter.mostrar_resumo()
+    print("resultado: " + result)
+    # send_message(sender, reply_text)
+    send_message(sender, result)
     # Add your news fetching logic here
 
 def handle_option_two(sender):

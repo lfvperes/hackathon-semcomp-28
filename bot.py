@@ -1,6 +1,9 @@
-from uniao_noticias_request import AlphaVantageNewsProcessor
+from teste_unificado_V3 import AlphaVantageProcessor, demo_mostrar_carteira, demo_gerar_recomendacoes
+# from uniao_noticias_request import AlphaVantageNewsProcessor
 
-processor = AlphaVantageNewsProcessor()
+# This processor instance is now only used for the simple news lookup.
+# The recommendation engine uses its own internal instance.
+processor = AlphaVantageProcessor()
 
 from flask import Flask, request, jsonify
 import requests
@@ -69,12 +72,11 @@ def webhook():
                 elif text == '2' or 'option 2' in text:
                     see_portfolio(sender)
                     del user_states[sender]  # Clear the state
-                elif text == '3' or 'option 2' in text:
+                elif text == '3' or 'recomenda' in text:
                     recommendations(sender)
                     del user_states[sender]  # Clear the state
                 else:
-                    send_message(sender, "Sorry, I didn't understand that. Please reply with '1' or '2'.")
-
+                    send_message(sender, "Opção inválida. Por favor, responda com '1', '2' ou '3'.")
             # 2. If the user is not in a state, check for trigger words
             elif "investimento" in text:
                 # Set the user's state
@@ -142,39 +144,53 @@ def send_list(to, title, description, button_text, footer_text, sections):
     print(f"Sent list response: {response.status_code}")
     print(f"Response body: {response.text}") # Added for more detailed debugging
     return response
-def updated_stocks(sender):
-    """Placeholder function for when the user chooses option 1."""
-    print(f"✅ Handling 'See stock news' for {sender}")
-    # Here you would call your method from uniao_noticias_request
-    result = ""
-    if processor.fazer_requisicao_api():
-        # 2. Salvar dados brutos
-        processor.salvar_dados_brutos()
-        
-        # 3. Processar dados
-        if processor.processar_dados():
-            # 4. Mostrar resumo
-            result = processor.mostrar_resumo()
-            
-            # 5. Exportar resultados
-            processor.exportar_resultados()
-        
-    send_message(sender, result)
-    # Add your news fetching logic here
 
+def updated_stocks(sender):
+    """Asks for a ticker, but for the demo, uses a hardcoded list."""
+    print(f"✅ Handling 'See updated stocks' for {sender}")
+
+    # In a real app, you would ask the user for a stock ticker.
+    # For this demo, we'll just show news for a few popular ones.
+    send_message(sender, "Buscando notícias para as ações mais populares (AAPL, MSFT, GOOGL)...")
+
+    tickers = "AAPL,MSFT,GOOGL"
+    sucesso, msg = processor.buscar_noticias(tickers)
+    if sucesso:
+        processor.processar_noticias()
+        # We'll just show the summary for the first ticker as an example
+        resumo = processor.mostrar_resumo_noticias(tickers.split(',')[0])
+        send_message(sender, resumo)
+    else:
+        send_message(sender, f"Não foi possível buscar as notícias no momento: {msg}")
 def see_portfolio(sender):
-    """Placeholder function for when the user chooses option 2."""
+    """Shows the user's hardcoded portfolio by calling the demo function."""
     print(f"✅ Handling 'Check my portfolio' for {sender}")
-    # Here you would add your portfolio logic
-    reply_text = "You chose to check your portfolio! Looking that up for you..."
-    send_message(sender, reply_text)
-    # Add your portfolio logic here
+
+    # For this demo, we'll assume the user is client '0001'
+    cliente_id = '0001'
+
+    # Call the refactored function from the other script
+    portfolio_info = demo_mostrar_carteira(cliente_id)
+    send_message(sender, portfolio_info)
+
 
 def recommendations(sender):
+    """Generates and shows recommendations by calling the demo function."""
     print(f"✅ Handling 'See recommendations' for {sender}")
 
-    reply_text = "Você escolheu recomendações. Aqui estão: "
-    send_message(sender, reply_text)
+    # For this demo, we'll assume the user is client '0001'
+    cliente_id = '0001'
+
+    # Send a waiting message because this can take a long time due to API calls
+    send_message(sender, "Estou preparando suas recomendações personalizadas. Isso pode levar um momento...")
+
+    # Call the refactored, long-running function
+    recommendation_summary = demo_gerar_recomendacoes(cliente_id)
+
+    # Note: This message might be very long for WhatsApp.
+    # In a real app, you might need to split it into multiple messages.
+    send_message(sender, recommendation_summary)
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
