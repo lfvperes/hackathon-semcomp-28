@@ -126,7 +126,7 @@ def recomendar_simbolos(df, symbols_entrada, pesos, top_n):
       u += 1
 
     # Criando DataFrame de scores
-    df_filtered['score'] = sim
+    df_filtered['score'] = S
 
     # Excluindo Symbols de entrada
     df_result = df_filtered[~df_filtered['Symbol'].isin(symbols_entrada)]
@@ -136,5 +136,6 @@ def recomendar_simbolos(df, symbols_entrada, pesos, top_n):
 
     return top_symbols
 
-top5_recomendados = recomendar_simbolos(nasdaqData, clt1.carteira.tickers, clt1.carteira.quantidades, top_n=5)
+top5_recomendados = recomendar_simbolos(nasdaqData, clt2.carteira.tickers, clt2.carteira.quantidades, top_n=5)
 print(top5_recomendados)
+
